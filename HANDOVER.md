@@ -132,15 +132,52 @@ supabase/migrations/               0001_schema, 0002_rls, 0003_rename_candidate
 
 ---
 
-## 8. Pending / next steps
+## 8. Roadmap & upcoming tasks
 
-- [ ] **Email delivery** — results & certificates are computed and stored but **not emailed yet**. The receipt promises "emailed"; wire up an email provider (Resend/Postmark/n8n).
-- [ ] **Stripe paid tiers** — `entitlements` table + `get_attempt_result` RPC exist; checkout, webhook (idempotent), and tier-gated result views are not built.
-- [ ] **Certificates** — `certificates` table exists; signed/verifiable generation + the verify page are stubs.
-- [ ] **Real cohort percentile** — needs `cohort_stats` populated (the legacy system faked it).
-- [ ] **Server-side timeout sweep** — auto-submit currently only fires while the quiz tab is open; closed-tab timeouts need the `jobs` queue / a cron (planned n8n job engine).
-- [ ] **Dependabot** — 1 moderate advisory on the repo; run `npm audit` / Dependabot PR.
-- [ ] Optionally connect the repo to Vercel for push-to-deploy; configure Supabase Auth Site URL + Google provider.
+### Build plan (6 sub-projects)
+
+| # | Sub-project | Status |
+|---|---|---|
+| 1 | Data layer + auth + RLS (Supabase schema) | ✅ Done |
+| 2 | Authoring pipeline (admin AI generator + question CRUD) | ✅ Done |
+| 3 | Delivery (catalogue, attempt, autosave/resume, timer, submit) | ✅ Done |
+| 4 | Grading engine v2 (queue + self-consistency + review flagging) | 🟡 Partial — basic grading live; v2 pending |
+| 5 | Results + Stripe entitlements + real cohort percentile | ⬜ Not started |
+| 6 | Certificates v2 (signed / W3C Verifiable Credentials + verify page) | ⬜ Not started |
+
+### Upcoming tasks (priority order)
+
+1. **Email delivery** — *highest; the receipt already promises it.*
+   - Email the graded result (score, band, breakdown) when grading completes.
+   - Provider options: Resend / Postmark / Supabase + n8n. Trigger from `gradeAttempt` or a `jobs` row.
+   - Attach/link the certificate on pass (after task 3).
+
+2. **Stripe paid tiers (sub-project 5)**
+   - Checkout for tiers 2/3/4; **idempotent** webhook → write `entitlements` (use `stripe_event_id` unique).
+   - Gate detailed results through the existing `get_attempt_result` RPC (tier 1 outcome → 2 sections → 3 percentile → 4 per-question).
+
+3. **Verifiable certificates (sub-project 6)**
+   - Generate a signed certificate (PDF + `verify_id` + signature) into `certificates`.
+   - Flesh out the public `/verify` page (`verify_certificate` RPC already exists).
+   - Consider Open Badges 3.0 / W3C Verifiable Credentials.
+
+4. **Real cohort percentile**
+   - Populate `cohort_stats`; replace any placeholder ranking with a real distribution (tier 3 sells "rank vs others").
+
+5. **Grading engine v2 (sub-project 4)**
+   - Multi-sample **self-consistency** for free-text marks; flag low-agreement answers as `needs_review`.
+   - Move grading onto a real queue (`jobs` table / n8n) instead of `after()`.
+
+6. **Server-side timeout sweep**
+   - Cron/job to auto-submit attempts whose 90-min window elapsed while the tab was closed (client-side auto-submit only covers open tabs).
+
+### Housekeeping
+
+- [ ] Clear the **moderate Dependabot** advisory (`npm audit` / Dependabot PR).
+- [ ] Connect the repo to Vercel for **push-to-deploy** (currently CLI deploys).
+- [ ] Confirm Supabase Auth **Site URL** + redirect allow-list = the Vercel domain; finish **Google** provider setup.
+- [ ] Add a per-quiz **duration** field in the editor (currently defaults to 90 min).
+- [ ] Make the **pass mark** editable (currently auto = half of total).
 
 ---
 
