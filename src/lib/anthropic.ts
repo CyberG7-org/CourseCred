@@ -18,6 +18,7 @@ function client(): Anthropic {
 export type GenInput = {
   topic: string;
   knowledgeBase?: string;
+  pdfBase64?: string;
   difficulty: "easy" | "medium" | "hard";
   sections: number;
   mcqPerSection: number;
@@ -109,18 +110,31 @@ export async function generateQuiz(input: GenInput): Promise<GenQuiz> {
   const kb = input.knowledgeBase?.trim()
     ? `\n\nKNOWLEDGE BASE (ground all questions strictly in this material):\n${input.knowledgeBase.trim().slice(0, 60000)}`
     : "";
+  const docNote = input.pdfBase64
+    ? "\n\nGround all questions strictly in the ATTACHED document."
+    : "";
 
   const userMsg =
     `Create a ${input.difficulty} quiz on the topic: "${input.topic}".\n` +
     `Produce exactly ${input.sections} section(s). In EACH section include exactly ` +
     `${input.mcqPerSection} mcq, ${input.shortPerSection} short, and ${input.longPerSection} long question(s).` +
+    docNote +
     kb;
+
+  const userBlocks: Anthropic.ContentBlockParam[] = [];
+  if (input.pdfBase64) {
+    userBlocks.push({
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: input.pdfBase64 },
+    });
+  }
+  userBlocks.push({ type: "text", text: userMsg });
 
   const res = await client().messages.create({
     model: "claude-opus-4-8",
     max_tokens: 16000,
     system: SYSTEM,
-    messages: [{ role: "user", content: userMsg }],
+    messages: [{ role: "user", content: userBlocks }],
     // output_config is the canonical structured-output parameter; spread keeps
     // the rest of the params strongly typed while injecting it.
     ...({ output_config: { format: { type: "json_schema", schema: SCHEMA } } } as object),
@@ -131,4 +145,71 @@ export async function generateQuiz(input: GenInput): Promise<GenQuiz> {
     throw new Error("The model returned no quiz content. Try again.");
   }
   return JSON.parse(block.text) as GenQuiz;
+}
+
+// ---------------------------------------------------------------------------
+// Free-text grading (short / long answers) — rubric-anchored, structured output.
+// ---------------------------------------------------------------------------
+
+export type FreeTextItem = {
+  question_id: string;
+  stem: string;
+  marks: number;
+  model_answer: string;
+  rubric: { points: number; criterion: string }[];
+  answer: string;
+};
+export type FreeTextGrade = { question_id: string; awarded: number; rationale: string };
+
+const GRADE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    grades: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          question_id: { type: "string" },
+          awarded: { type: "number" },
+          rationale: { type: "string" },
+        },
+        required: ["question_id", "awarded", "rationale"],
+      },
+    },
+  },
+  required: ["grades"],
+};
+
+const GRADE_SYSTEM = `You are a strict, fair, consistent exam grader.
+For each question, award an integer number of marks from 0 to that question's max, guided ONLY by the rubric and model answer — not by writing style or length.
+Award partial credit strictly per the rubric's points. If the candidate's answer is blank or irrelevant, award 0.
+Echo each question_id exactly. Keep each rationale to one sentence. Output must match the JSON schema.`;
+
+export async function gradeFreeText(items: FreeTextItem[]): Promise<FreeTextGrade[]> {
+  if (items.length === 0) return [];
+
+  const payload = items.map((it) => ({
+    question_id: it.question_id,
+    max_marks: it.marks,
+    question: it.stem,
+    model_answer: it.model_answer,
+    rubric: it.rubric,
+    candidate_answer: it.answer?.trim() ? it.answer : "(no answer provided)",
+  }));
+
+  const res = await client().messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 8000,
+    system: GRADE_SYSTEM,
+    messages: [
+      { role: "user", content: "Grade each answer:\n" + JSON.stringify(payload, null, 2) },
+    ],
+    ...({ output_config: { format: { type: "json_schema", schema: GRADE_SCHEMA } } } as object),
+  });
+
+  const block = res.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("The grader returned no content.");
+  return (JSON.parse(block.text) as { grades: FreeTextGrade[] }).grades;
 }

@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { startAttempt } from "@/app/quiz/actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const metadata = { title: "Courses — ExamCert" };
 
@@ -58,13 +60,14 @@ export default async function CoursesPage() {
                           <span className="font-semibold text-ink">
                             {q.title}
                           </span>
-                          <button
-                            disabled
-                            title="Quiz runner ships in the next update"
-                            className="cursor-not-allowed rounded-lg bg-brand/40 px-3 py-1 text-xs font-bold text-white"
-                          >
-                            Start
-                          </button>
+                          <form action={startAttempt.bind(null, q.id)}>
+                            <SubmitButton
+                              className="rounded-lg bg-brand px-3 py-1 text-xs font-bold text-white hover:bg-brand-dark"
+                              pendingText="Starting…"
+                            >
+                              Start
+                            </SubmitButton>
+                          </form>
                         </div>
                       ))
                     ) : (

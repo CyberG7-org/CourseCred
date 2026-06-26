@@ -65,15 +65,24 @@ export function GenerateForm({
         <label className={label}>
           Knowledge base{" "}
           <span className="font-normal text-muted">
-            (optional — paste source material to ground the questions)
+            (optional — paste text and/or upload a document to ground the questions)
           </span>
         </label>
         <textarea
           name="knowledge_base"
-          rows={6}
+          rows={5}
           className={field}
           placeholder="Paste study notes, a syllabus, or reference text…"
         />
+        <input
+          type="file"
+          name="kb_file"
+          accept=".pdf,.docx,.txt,.md"
+          className="mt-2 block w-full text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:font-semibold file:text-white hover:file:bg-brand-dark"
+        />
+        <p className="mt-1 text-xs text-muted">
+          PDF, DOCX, or TXT. Paste and upload can both be used — they&apos;re combined.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

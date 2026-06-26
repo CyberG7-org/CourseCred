@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createCourse, setCourseStatus } from "../actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const metadata = { title: "Courses — Admin" };
 
@@ -29,9 +31,12 @@ export default async function AdminCourses() {
           placeholder="New course title"
           className="flex-1 rounded-xl border border-line bg-white px-4 py-2.5 outline-none focus:border-brand-accent"
         />
-        <button className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark">
+        <SubmitButton
+          className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark"
+          pendingText="Adding…"
+        >
           Add course
-        </button>
+        </SubmitButton>
       </form>
 
       <div className="mt-8 overflow-hidden rounded-2xl border border-line bg-white">
@@ -54,7 +59,14 @@ export default async function AdminCourses() {
             ) : (
               courses.map((c) => (
                 <tr key={c.id} className="border-b border-line last:border-0">
-                  <td className="px-5 py-3 font-semibold text-ink">{c.title}</td>
+                  <td className="px-5 py-3 font-semibold">
+                    <Link
+                      href={`/admin/courses/${c.id}`}
+                      className="text-brand-dark hover:text-brand hover:underline"
+                    >
+                      {c.title}
+                    </Link>
+                  </td>
                   <td className="px-5 py-3 text-muted">{c.quizzes?.length ?? 0}</td>
                   <td className="px-5 py-3">
                     <span
@@ -75,9 +87,12 @@ export default async function AdminCourses() {
                         c.status === "published" ? "draft" : "published",
                       )}
                     >
-                      <button className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-brand hover:bg-canvas">
+                      <SubmitButton
+                        className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-brand hover:bg-canvas"
+                        pendingText="…"
+                      >
                         {c.status === "published" ? "Unpublish" : "Publish"}
-                      </button>
+                      </SubmitButton>
                     </form>
                   </td>
                 </tr>
