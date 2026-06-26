@@ -80,25 +80,15 @@ export default async function QuizPage({
 
   return (
     <main className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-3">
-          <span className="text-lg font-extrabold text-brand-dark">ExamCert</span>
-          <span className="text-sm text-muted">{quiz?.total_marks} marks</span>
-        </div>
-      </header>
-      <div className="mx-auto max-w-3xl px-5 py-8">
-        <h1 className="text-2xl font-bold text-brand-dark">{quiz?.title}</h1>
-        <p className="mt-1 text-sm text-muted">
-          Answer the questions below — your answers save automatically.
-        </p>
-        <QuizRunner
-          attemptId={attemptId}
-          questions={questions}
-          initialAnswers={initialAnswers}
-          durationMinutes={quiz?.duration_minutes ?? null}
-          startedAt={attempt.started_at}
-        />
-      </div>
+      <QuizRunner
+        attemptId={attemptId}
+        quizTitle={quiz?.title ?? "Quiz"}
+        totalMarks={quiz?.total_marks ?? 0}
+        questions={questions}
+        initialAnswers={initialAnswers}
+        durationMinutes={quiz?.duration_minutes ?? 90}
+        startedAt={attempt.started_at}
+      />
     </main>
   );
 }

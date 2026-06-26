@@ -33,14 +33,15 @@ export async function Navbar() {
           </Link>
           {user ? (
             <>
-              {isAdmin && (
+              {isAdmin ? (
                 <Link href="/admin" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
                   Admin
                 </Link>
+              ) : (
+                <Link href="/dashboard" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
+                  Dashboard
+                </Link>
               )}
-              <Link href="/dashboard" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
-                Dashboard
-              </Link>
               <LogoutButton />
             </>
           ) : (

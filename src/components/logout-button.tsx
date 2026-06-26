@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export function LogoutButton() {
+export function LogoutButton({ className }: { className?: string }) {
   const router = useRouter();
 
   async function logout() {
@@ -16,7 +16,7 @@ export function LogoutButton() {
   return (
     <button
       onClick={logout}
-      className="rounded-lg px-3 py-2 text-ink hover:bg-canvas"
+      className={className ?? "rounded-lg px-3 py-2 text-ink hover:bg-canvas"}
     >
       Log out
     </button>

@@ -24,6 +24,15 @@ export default async function CoursesPage() {
 
   const courses = (data ?? []) as Course[];
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let isAdmin = false;
+  if (user) {
+    const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    isAdmin = p?.role === "admin";
+  }
+
   return (
     <>
       <Navbar />
@@ -60,14 +69,20 @@ export default async function CoursesPage() {
                           <span className="font-semibold text-ink">
                             {q.title}
                           </span>
-                          <form action={startAttempt.bind(null, q.id)}>
-                            <SubmitButton
-                              className="rounded-lg bg-brand px-3 py-1 text-xs font-bold text-white hover:bg-brand-dark"
-                              pendingText="Starting…"
-                            >
-                              Start
-                            </SubmitButton>
-                          </form>
+                          {isAdmin ? (
+                            <span className="rounded-lg bg-canvas px-3 py-1 text-xs font-semibold text-muted">
+                              Admin · view only
+                            </span>
+                          ) : (
+                            <form action={startAttempt.bind(null, q.id)}>
+                              <SubmitButton
+                                className="rounded-lg bg-brand px-3 py-1 text-xs font-bold text-white hover:bg-brand-dark"
+                                pendingText="Starting…"
+                              >
+                                Start
+                              </SubmitButton>
+                            </form>
+                          )}
                         </div>
                       ))
                     ) : (
