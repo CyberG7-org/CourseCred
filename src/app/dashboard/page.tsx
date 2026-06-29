@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
-export const metadata = { title: "Dashboard — ExamCert" };
+export const metadata = { title: "Dashboard — CourseCred" };
 
 export default async function DashboardPage() {
   const supabase = await createClient();

@@ -2,7 +2,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { VerifyForm } from "@/components/verify-form";
 
-export const metadata = { title: "Verify a certificate — ExamCert" };
+export const metadata = { title: "Verify a certificate — CourseCred" };
 
 export default function VerifyPage() {
   return (

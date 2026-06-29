@@ -26,7 +26,7 @@ export default async function AdminLayout({
     <div className="flex min-h-screen">
       <aside className="flex w-60 shrink-0 flex-col border-r-2 border-brand-accent bg-brand-dark p-5 text-white">
         <Link href="/admin" className="text-xl font-extrabold">
-          ExamCert <span className="text-brand-light">Admin</span>
+          CourseCred <span className="text-brand-light">Admin</span>
         </Link>
         <div className="mt-8">
           <AdminNav />

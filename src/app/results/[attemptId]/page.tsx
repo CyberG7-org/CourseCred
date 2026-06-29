@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ResultTimes } from "./result-times";
 
-export const metadata = { title: "Submission received — ExamCert" };
+export const metadata = { title: "Submission received — CourseCred" };
 
 export default async function ResultsPage({
   params,

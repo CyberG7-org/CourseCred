@@ -11,7 +11,7 @@ AI-graded exam & certification platform (Coursera/Kahoot-style). Admins generate
 | Live site | https://examcert-web.vercel.app |
 | Admin console | https://examcert-web.vercel.app/admin |
 | GitHub repo | `CyberG7-org/Exam-Platform` (private) |
-| Local clone | `C:\Users\cyber\examcert-web` (branch `master`) |
+| Local clone | `C:\Users\cyber\Downloads\Claude MCP\ExamCert Platform\web` (branch `master`) |
 | Supabase project | `ysxbemvuhljslfftcvev` |
 | Vercel | scope `cyberg7`, project `examcert-web` |
 

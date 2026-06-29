@@ -1,11 +1,31 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { gradeFreeText, type FreeTextItem } from "@/lib/anthropic";
+import { sendResultToN8n } from "@/lib/notify";
 
 function norm(v: unknown): string {
   return String(v ?? "")
     .trim()
     .toLowerCase()
     .replace(/^"|"$/g, "");
+}
+
+function formatDuration(start: string | null, end: string | null): string {
+  if (!start || !end) return "—";
+  const s = Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+  if (s < 60) return `${s}s`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m ${sec}s`;
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 type KeyRow = {
@@ -37,14 +57,14 @@ export async function gradeAttempt(attemptId: string) {
 
   const { data: attempt } = await svc
     .from("attempts")
-    .select("id, quiz_id, candidate_code")
+    .select("id, quiz_id, candidate_code, user_id, started_at, submitted_at")
     .eq("id", attemptId)
     .single();
   if (!attempt) throw new Error("Attempt not found");
 
   const { data: quiz } = await svc
     .from("quizzes")
-    .select("total_marks, pass_mark")
+    .select("title, total_marks, pass_mark, courses(title)")
     .eq("id", attempt.quiz_id)
     .single();
 
@@ -132,7 +152,7 @@ export async function gradeAttempt(attemptId: string) {
   const band =
     ratio >= 0.8 ? "Excellent" : ratio >= 0.6 ? "Good" : passed ? "Pass" : "Needs improvement";
   const code =
-    attempt.candidate_code ?? "EC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    attempt.candidate_code ?? "CC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
   await svc
     .from("attempts")
@@ -146,6 +166,34 @@ export async function gradeAttempt(attemptId: string) {
       candidate_code: code,
     })
     .eq("id", attemptId);
+
+  // Hand off to n8n for email delivery (no-ops if the webhook isn't set yet).
+  const { data: authUser } = await svc.auth.admin.getUserById(attempt.user_id);
+  const { data: prof } = await svc
+    .from("profiles")
+    .select("full_name")
+    .eq("id", attempt.user_id)
+    .single();
+  const courseEmbed = (
+    quiz as { courses?: { title: string | null } | { title: string | null }[] } | null
+  )?.courses;
+  const course = Array.isArray(courseEmbed) ? courseEmbed[0] : courseEmbed;
+  await sendResultToN8n({
+    candidate_id: code,
+    email: authUser?.user?.email ?? "",
+    name: prof?.full_name ?? "",
+    course: course?.title ?? "",
+    quiz: (quiz as { title?: string | null } | null)?.title ?? "",
+    score,
+    max_score: maxScore,
+    percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
+    passed,
+    band,
+    started_at: attempt.started_at ?? null,
+    submitted_at: attempt.submitted_at ?? null,
+    duration: formatDuration(attempt.started_at, attempt.submitted_at),
+    date: formatDate(attempt.submitted_at),
+  });
 
   return { score, maxScore, passed };
 }

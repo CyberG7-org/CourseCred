@@ -22,7 +22,7 @@ export async function Navbar() {
     <header className="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
         <Link href="/" className="text-xl font-extrabold text-brand-dark">
-          ExamCert
+          CourseCred
         </Link>
         <nav className="flex items-center gap-1 text-sm font-semibold">
           <Link href="/courses" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">

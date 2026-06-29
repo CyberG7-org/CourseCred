@@ -187,7 +187,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden flex-col justify-center bg-gradient-to-br from-brand-dark to-brand p-14 text-white lg:flex">
         <Link href="/" className="text-2xl font-extrabold">
-          ExamCert
+          CourseCred
         </Link>
         <h1 className="mt-10 max-w-md text-4xl font-extrabold leading-tight">
           Your quizzes, results, and certificates in one place.

@@ -4,7 +4,7 @@ import { Footer } from "@/components/footer";
 import { startAttempt } from "@/app/quiz/actions";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Courses — ExamCert" };
+export const metadata = { title: "Courses — CourseCred" };
 
 type Quiz = { id: string; title: string };
 type Course = {

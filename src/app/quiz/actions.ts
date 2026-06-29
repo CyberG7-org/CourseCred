@@ -73,7 +73,7 @@ export async function submitAttempt(attemptId: string) {
   // Mint the per-attempt candidate code now so it shows on the receipt
   // immediately (each attempt — hence each course taken — gets its own).
   const code =
-    attempt.candidate_code ?? "EC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    attempt.candidate_code ?? "CC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
   await supabase
     .from("attempts")

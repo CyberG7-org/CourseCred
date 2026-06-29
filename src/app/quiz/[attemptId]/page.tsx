@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { QuizRunner, type RunnerQuestion } from "./quiz-runner";
 
 export const maxDuration = 60;
-export const metadata = { title: "Take quiz — ExamCert" };
+export const metadata = { title: "Take quiz — CourseCred" };
 
 type QEmbed = {
   id: string;

@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ExamCert — AI-graded exams & verifiable certificates",
+  title: "CourseCred — Courses, AI-graded exams & verifiable certificates",
   description:
-    "Take AI-generated quizzes, get instant AI-marked results, and earn certificates anyone can verify.",
+    "Take a course, sit an AI-marked exam, and earn a credential anyone can verify.",
 };
 
 export default function RootLayout({
