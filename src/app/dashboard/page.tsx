@@ -33,6 +33,14 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirect=/dashboard");
 
+  // Admins belong in the admin console, not the candidate dashboard.
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (me?.role === "admin") redirect("/admin");
+
   const [coursesRes, attemptsRes, certs, entsRes] = await Promise.all([
     supabase
       .from("courses")
