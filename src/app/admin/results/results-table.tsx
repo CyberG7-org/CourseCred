@@ -17,6 +17,7 @@ export type ResultRow = {
   startedAt: string;
   submittedAt: string | null;
   durationLabel: string;
+  resultSentAt: string | null;
 };
 
 const FILTERS = [
@@ -102,12 +103,13 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
               <th className={th}>Started</th>
               <th className={th}>Submitted</th>
               <th className={th}>Time</th>
+              <th className={th}>Result sent</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-muted">
+                <td colSpan={9} className="px-4 py-10 text-center text-muted">
                   No matching attempts.
                 </td>
               </tr>
@@ -145,6 +147,9 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
                       <LocalTime iso={r.submittedAt} />
                     </td>
                     <td className={`${td} whitespace-nowrap text-muted`}>{r.durationLabel}</td>
+                    <td className={`${td} whitespace-nowrap text-muted`}>
+                      <LocalTime iso={r.resultSentAt} />
+                    </td>
                   </tr>
                 );
               })

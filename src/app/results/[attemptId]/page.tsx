@@ -4,8 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ResultTimes } from "./result-times";
+import { AutoRefresh } from "./auto-refresh";
+import { tiersAbove, TIER_INFO, upgradeUrl } from "@/lib/tiers";
 
-export const metadata = { title: "Submission received — CourseCred" };
+export const metadata = { title: "Your result — CourseCred" };
+
+type Section = { section_no: number; awarded: number; max: number };
+type Question = { question_id: string; awarded: number; max: number; rationale: string | null };
+type AttemptResult = {
+  state: string;
+  score: number | null;
+  max_score: number | null;
+  passed: boolean | null;
+  tier: number;
+  sections?: Section[];
+  percentile?: number | null;
+  questions?: Question[];
+};
 
 export default async function ResultsPage({
   params,
@@ -21,7 +36,9 @@ export default async function ResultsPage({
 
   const { data: a } = await supabase
     .from("attempts")
-    .select("id, user_id, state, candidate_code, started_at, submitted_at, quiz_id")
+    .select(
+      "id, user_id, state, candidate_code, started_at, submitted_at, result_sent_at, quiz_id",
+    )
     .eq("id", attemptId)
     .single();
   if (!a || a.user_id !== user.id) notFound();
@@ -33,52 +50,161 @@ export default async function ResultsPage({
     .eq("id", a.quiz_id)
     .single();
 
+  // Still grading → brief auto-refreshing "marking" state, then the result appears.
+  if (a.state !== "graded") {
+    return (
+      <>
+        <Navbar />
+        <main className="flex-1">
+          <div className="mx-auto max-w-2xl px-5 py-12">
+            <AutoRefresh />
+            <p className="text-sm text-muted">{quiz?.title}</p>
+            <h1 className="mt-1 text-3xl font-bold text-brand-dark">Marking your answers…</h1>
+            <div className="mt-6 rounded-2xl border border-line bg-white p-8 shadow-sm">
+              <p className="font-bold text-brand-dark">Your responses are recorded ✓</p>
+              <p className="mt-1 text-sm text-muted">
+                We&apos;re grading now — your result appears here in a moment, and a copy is emailed to you.
+              </p>
+              <div className="mt-6 rounded-xl bg-canvas p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Candidate ID</span>
+                  <span className="font-mono text-sm font-bold text-brand-dark">
+                    {a.candidate_code ?? "—"}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <ResultTimes startedAt={a.started_at} submittedAt={a.submitted_at} />
+              </div>
+            </div>
+            <div className="mt-6">
+              <Link href="/dashboard" className="text-sm font-semibold text-brand hover:underline">
+                ← Back to dashboard
+              </Link>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  // Released → tier-gated result via the RPC.
+  const { data: res } = await supabase.rpc("get_attempt_result", { p_attempt_id: attemptId });
+  const r = (res ?? {}) as AttemptResult;
+  const tier = r.tier ?? 1;
+  const email = user.email ?? "";
+  const upgrades = tiersAbove(tier);
+
   return (
     <>
       <Navbar />
       <main className="flex-1">
         <div className="mx-auto max-w-2xl px-5 py-12">
           <p className="text-sm text-muted">{quiz?.title}</p>
-          <h1 className="mt-1 text-3xl font-bold text-brand-dark">Submission received</h1>
+          <h1 className="mt-1 text-3xl font-bold text-brand-dark">Your result</h1>
 
-          <div className="mt-6 rounded-2xl border border-line bg-white p-8 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-xl font-bold text-green-700">
-                ✓
-              </span>
-              <div>
-                <p className="font-bold text-brand-dark">Your responses are recorded</p>
-                <p className="text-sm text-muted">
-                  Your result will be sent to your email once marking is complete.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-xl bg-canvas p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted">Candidate ID</span>
-                <span className="font-mono text-sm font-bold text-brand-dark">
-                  {a.candidate_code ?? "—"}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted">
-                Unique to this attempt — quote it in any query about your result.
+          <div className="mt-6 rounded-2xl border border-line bg-white p-8 text-center shadow-sm">
+            <p className="text-sm font-semibold text-muted">Outcome</p>
+            <p
+              className={`mt-2 text-5xl font-extrabold ${
+                r.passed ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {r.passed ? "PASS" : "FAIL"}
+            </p>
+            {tier >= 2 && r.score != null ? (
+              <p className="mt-3 text-lg font-bold text-brand-dark">
+                {Number(r.score)} / {Number(r.max_score)}
               </p>
-            </div>
+            ) : (
+              <p className="mt-3 text-xs text-muted">
+                Tier 1 shows your outcome only — unlock the score &amp; breakdown below.
+              </p>
+            )}
+          </div>
 
-            <div className="mt-4">
+          <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Candidate ID</span>
+              <span className="font-mono text-sm font-bold text-brand-dark">
+                {a.candidate_code ?? "—"}
+              </span>
+            </div>
+            <div className="mt-2">
               <ResultTimes startedAt={a.started_at} submittedAt={a.submitted_at} />
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-dashed border-line bg-white p-6">
-            <h2 className="font-bold text-brand-dark">What happens next?</h2>
-            <p className="mt-1 text-sm text-muted">
-              Your answers are being marked. You will receive your score, a performance breakdown,
-              and (if eligible) your certificate by email. Paid tiers unlock section-by-section
-              analysis and percentile ranking.
-            </p>
-          </div>
+          {tier >= 2 && r.sections && r.sections.length > 0 && (
+            <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
+              <h2 className="font-bold text-brand-dark">Section breakdown</h2>
+              <div className="mt-3 space-y-2">
+                {r.sections.map((s) => (
+                  <div
+                    key={s.section_no}
+                    className="flex items-center justify-between border-t border-line py-2 text-sm first:border-t-0"
+                  >
+                    <span className="text-muted">Section {s.section_no}</span>
+                    <span className="font-semibold text-ink">
+                      {Number(s.awarded)} / {Number(s.max)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tier >= 3 && r.percentile != null && (
+            <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
+              <h2 className="font-bold text-brand-dark">Ranking</h2>
+              <p className="mt-1 text-sm text-muted">
+                You scored higher than <b>{Math.round(r.percentile)}%</b> of candidates on this quiz.
+              </p>
+            </div>
+          )}
+
+          {tier >= 4 && r.questions && r.questions.length > 0 && (
+            <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
+              <h2 className="font-bold text-brand-dark">Per-question diagnostic</h2>
+              <ol className="mt-3 space-y-2 text-sm">
+                {r.questions.map((q, i) => (
+                  <li key={q.question_id} className="border-t border-line py-2 first:border-t-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Question {i + 1}</span>
+                      <span className="font-semibold text-ink">
+                        {Number(q.awarded)} / {Number(q.max)}
+                      </span>
+                    </div>
+                    {q.rationale && <p className="mt-1 text-xs text-muted">{q.rationale}</p>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {upgrades.length > 0 && (
+            <div className="mt-6 rounded-2xl border border-dashed border-line bg-white p-6">
+              <h2 className="font-bold text-brand-dark">Unlock more</h2>
+              <div className="mt-3 space-y-4">
+                {upgrades.map((t) => (
+                  <div key={t}>
+                    <p className="font-semibold text-ink">{TIER_INFO[t].title}</p>
+                    <p className="text-sm text-muted">{TIER_INFO[t].desc}</p>
+                    <a
+                      href={upgradeUrl(t, a.candidate_code ?? "", email)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block rounded-xl px-4 py-2 text-sm font-bold text-white"
+                      style={{ background: TIER_INFO[t].color }}
+                    >
+                      Upgrade to Tier {t}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link

@@ -13,6 +13,8 @@ export type ResultPayload = {
   submitted_at: string | null;
   duration: string;
   date: string;
+  tier: number;
+  upgrade_html: string;
 };
 
 // Fire-and-forget POST to the n8n webhook that sends the result email.

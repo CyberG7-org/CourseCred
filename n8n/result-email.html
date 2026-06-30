@@ -18,25 +18,7 @@
 
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">This basic result only shows your overall outcome. To view your section breakdown, performance insights, ranking comparison, and full academic diagnostic, you may upgrade below.</p>
 
-    <h2 style="margin:0 0 16px;font-size:16px;font-weight:bold;color:#111827;">Unlock Your Full Performance Report</h2>
-
-    <div style="margin:0 0 20px;">
-      <div style="font-size:14px;font-weight:bold;color:#111827;">Tier 2 &ndash; Section Breakdown + Certificate</div>
-      <div style="font-size:13px;color:#6b7280;margin:4px 0 10px;">View pass/fail results for each section and receive your official certificate.</div>
-      <a href="{{ $json.body.upgrade_url || '#' }}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:13px;font-weight:bold;padding:10px 18px;border-radius:8px;">Upgrade to Tier 2</a>
-    </div>
-
-    <div style="margin:0 0 20px;">
-      <div style="font-size:14px;font-weight:bold;color:#111827;">Tier 3 &ndash; Ranking &amp; Comparison Report</div>
-      <div style="font-size:13px;color:#6b7280;margin:4px 0 10px;">See your percentile ranking and how you compare with other candidates.</div>
-      <a href="{{ $json.body.upgrade_url || '#' }}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-size:13px;font-weight:bold;padding:10px 18px;border-radius:8px;">Upgrade to Tier 3</a>
-    </div>
-
-    <div style="margin:0 0 24px;">
-      <div style="font-size:14px;font-weight:bold;color:#111827;">Tier 4 &ndash; Full Academic Diagnostic</div>
-      <div style="font-size:13px;color:#6b7280;margin:4px 0 10px;">Unlock detailed graphs, section analysis, strengths identification, score breakdowns, and improvement insights.</div>
-      <a href="{{ $json.body.upgrade_url || '#' }}" style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;font-size:13px;font-weight:bold;padding:10px 18px;border-radius:8px;">Upgrade to Tier 4</a>
-    </div>
+    {{ $json.body.upgrade_html }}
 
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 16px;">
     <p style="margin:0;text-align:center;font-size:12px;color:#9ca3af;">This email was sent to <a href="mailto:{{ $json.body.email }}" style="color:#9ca3af;">{{ $json.body.email }}</a></p>

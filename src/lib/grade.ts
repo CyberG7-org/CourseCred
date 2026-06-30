@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { gradeFreeText, type FreeTextItem } from "@/lib/anthropic";
 import { sendResultToN8n } from "@/lib/notify";
+import { renderUpgradeHtml } from "@/lib/tiers";
 
 function norm(v: unknown): string {
   return String(v ?? "")
@@ -178,9 +179,15 @@ export async function gradeAttempt(attemptId: string) {
     quiz as { courses?: { title: string | null } | { title: string | null }[] } | null
   )?.courses;
   const course = Array.isArray(courseEmbed) ? courseEmbed[0] : courseEmbed;
+  const email = authUser?.user?.email ?? "";
+
+  // Current tier for this attempt (free = 1, raised by Stripe entitlements).
+  const { data: ents } = await svc.from("entitlements").select("tier").eq("attempt_id", attemptId);
+  const tier = (ents ?? []).reduce((m: number, e: { tier: number }) => Math.max(m, e.tier ?? 1), 1);
+
   await sendResultToN8n({
     candidate_id: code,
-    email: authUser?.user?.email ?? "",
+    email,
     name: prof?.full_name ?? "",
     course: course?.title ?? "",
     quiz: (quiz as { title?: string | null } | null)?.title ?? "",
@@ -193,7 +200,12 @@ export async function gradeAttempt(attemptId: string) {
     submitted_at: attempt.submitted_at ?? null,
     duration: formatDuration(attempt.started_at, attempt.submitted_at),
     date: formatDate(attempt.submitted_at),
+    tier,
+    upgrade_html: renderUpgradeHtml(tier, code, email),
   });
+
+  // Reveal the result in the candidate + admin portals (post-delivery).
+  await svc.from("attempts").update({ result_sent_at: new Date().toISOString() }).eq("id", attemptId);
 
   return { score, maxScore, passed };
 }

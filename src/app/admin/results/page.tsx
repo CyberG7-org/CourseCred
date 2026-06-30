@@ -16,6 +16,7 @@ type Attempt = {
   candidate_code: string | null;
   started_at: string;
   submitted_at: string | null;
+  result_sent_at: string | null;
   quizzes: QuizEmbed | QuizEmbed[] | null;
 };
 
@@ -35,7 +36,7 @@ export default async function AdminResults() {
   const { data: attemptsData } = await svc
     .from("attempts")
     .select(
-      "id, user_id, state, score, max_score, passed, candidate_code, started_at, submitted_at, quizzes(title, courses(title))",
+      "id, user_id, state, score, max_score, passed, candidate_code, started_at, submitted_at, result_sent_at, quizzes(title, courses(title))",
     )
     .order("started_at", { ascending: false })
     .limit(500);
@@ -67,6 +68,7 @@ export default async function AdminResults() {
       maxScore: a.max_score,
       startedAt: a.started_at,
       submittedAt: a.submitted_at,
+      resultSentAt: a.result_sent_at ?? null,
       durationLabel: duration(a.started_at, a.submitted_at),
     };
   });

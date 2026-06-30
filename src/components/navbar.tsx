@@ -25,12 +25,6 @@ export async function Navbar() {
           CourseCred
         </Link>
         <nav className="flex items-center gap-1 text-sm font-semibold">
-          <Link href="/courses" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
-            Courses
-          </Link>
-          <Link href="/verify" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
-            Verify
-          </Link>
           {user ? (
             <>
               {isAdmin ? (
@@ -42,15 +36,29 @@ export async function Navbar() {
                   Dashboard
                 </Link>
               )}
+              <Link href="/courses" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
+                Courses
+              </Link>
+              <Link href="/verify" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
+                Verify
+              </Link>
               <LogoutButton />
             </>
           ) : (
-            <Link
-              href="/login"
-              className="rounded-lg bg-brand px-4 py-2 text-white hover:bg-brand-dark"
-            >
-              Sign in
-            </Link>
+            <>
+              <Link href="/courses" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
+                Courses
+              </Link>
+              <Link href="/verify" className="rounded-lg px-3 py-2 text-ink hover:bg-canvas">
+                Verify
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-lg bg-brand px-4 py-2 text-white hover:bg-brand-dark"
+              >
+                Sign in
+              </Link>
+            </>
           )}
         </nav>
       </div>
