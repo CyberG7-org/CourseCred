@@ -233,6 +233,11 @@ export default async function ResultsPage({
           {upgrades.length > 0 && (
             <div className="mt-6 rounded-2xl border border-dashed border-line bg-white p-6">
               <h2 className="font-bold text-brand-dark">Unlock more</h2>
+              <p className="mt-1 text-xs text-muted">
+                Unlocks <b>this result only</b> — Candidate ID{" "}
+                <span className="font-mono">{a.candidate_code ?? "—"}</span>. Each course you take is
+                upgraded separately.
+              </p>
               <div className="mt-3 space-y-4">
                 {upgrades.map((t) => (
                   <div key={t}>

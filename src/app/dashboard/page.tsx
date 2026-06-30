@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirect=/dashboard");
 
-  const [coursesRes, attemptsRes, certs] = await Promise.all([
+  const [coursesRes, attemptsRes, certs, entsRes] = await Promise.all([
     supabase
       .from("courses")
       .select("id, title, description, quizzes(id, title)", { count: "exact" })
@@ -51,11 +51,18 @@ export default async function DashboardPage() {
       .from("certificates")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id),
+    supabase.from("entitlements").select("attempt_id, tier").eq("user_id", user.id),
   ]);
 
   const courses = (coursesRes.data ?? []) as CourseRow[];
   const availableCount = coursesRes.count ?? courses.length;
   const graded = (attemptsRes.data ?? []) as AttemptRow[];
+
+  // Highest unlocked tier per attempt → "Tier N" badge in the history list.
+  const tierByAttempt = new Map<string, number>();
+  for (const e of (entsRes.data ?? []) as { attempt_id: string; tier: number }[]) {
+    tierByAttempt.set(e.attempt_id, Math.max(tierByAttempt.get(e.attempt_id) ?? 1, e.tier));
+  }
 
   const completedCount = graded.length;
   const passedCount = graded.filter((a) => a.passed).length;
@@ -252,6 +259,11 @@ export default async function DashboardPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
+                        {tierByAttempt.has(at.id) && (
+                          <span className="rounded-full bg-brand-light/40 px-2.5 py-1 text-xs font-bold text-brand-dark">
+                            Tier {tierByAttempt.get(at.id)}
+                          </span>
+                        )}
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                             at.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"

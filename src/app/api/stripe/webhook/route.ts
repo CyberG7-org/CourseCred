@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (attempt) {
-        await svc.from("entitlements").upsert(
+        const { error: grantErr } = await svc.from("entitlements").upsert(
           {
             user_id: attempt.user_id,
             attempt_id: attempt.id,
@@ -50,6 +50,7 @@ export async function POST(req: Request) {
           },
           { onConflict: "attempt_id,tier", ignoreDuplicates: true },
         );
+        if (grantErr) console.error("stripe webhook: entitlement grant failed", grantErr);
 
         // Hand the tier data to n8n to build + email the Slides cert/report.
         await deliverTierResult(attempt.id, tier).catch((e) =>

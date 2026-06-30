@@ -30,7 +30,7 @@ export default async function UpgradeCompletePage({
           .eq("candidate_code", candidateCode)
           .maybeSingle();
         if (attempt) {
-          await svc.from("entitlements").upsert(
+          const { error: grantErr } = await svc.from("entitlements").upsert(
             {
               user_id: attempt.user_id,
               attempt_id: attempt.id,
@@ -42,6 +42,7 @@ export default async function UpgradeCompletePage({
             },
             { onConflict: "attempt_id,tier", ignoreDuplicates: true },
           );
+          if (grantErr) console.error("upgrade/complete: entitlement grant failed", grantErr);
           dest = `/results/${attempt.id}`;
         }
       }
