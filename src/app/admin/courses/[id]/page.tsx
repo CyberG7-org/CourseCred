@@ -92,6 +92,12 @@ export default async function CourseDetail({
               </div>
               <div className="flex items-center gap-2">
                 <Link
+                  href={`/admin/quizzes/${q.id}/preview`}
+                  className="rounded-lg border border-line px-4 py-2 text-sm font-bold text-brand hover:bg-canvas"
+                >
+                  Preview
+                </Link>
+                <Link
                   href={`/admin/quizzes/${q.id}`}
                   className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark"
                 >
