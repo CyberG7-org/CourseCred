@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/service";
+import { deliverTierResult } from "@/lib/tier-delivery";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,11 @@ export async function POST(req: Request) {
             currency: session.currency ?? null,
           },
           { onConflict: "attempt_id,tier", ignoreDuplicates: true },
+        );
+
+        // Hand the tier data to n8n to build + email the Slides cert/report.
+        await deliverTierResult(attempt.id, tier).catch((e) =>
+          console.error("tier-result delivery failed", e),
         );
       } else {
         console.error("stripe webhook: no attempt for candidate_code", candidateCode);

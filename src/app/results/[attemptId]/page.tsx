@@ -98,6 +98,22 @@ export default async function ResultsPage({
   const email = user.email ?? "";
   const upgrades = tiersAbove(tier);
 
+  // The tier report PDF lands in Supabase Storage at a predictable path
+  // (uploaded by the n8n tier workflow). Show a download once it exists.
+  const reportUrl =
+    tier >= 2 && a.candidate_code
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/reports/${a.candidate_code}/tier${tier}.pdf`
+      : null;
+  let reportReady = false;
+  if (reportUrl) {
+    try {
+      const head = await fetch(reportUrl, { method: "HEAD", cache: "no-store" });
+      reportReady = head.ok;
+    } catch {
+      reportReady = false;
+    }
+  }
+
   return (
     <>
       <Navbar />
@@ -137,6 +153,35 @@ export default async function ResultsPage({
               <ResultTimes startedAt={a.started_at} submittedAt={a.submitted_at} />
             </div>
           </div>
+
+          {tier >= 2 && (
+            <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-brand-dark">Your Tier {tier} report</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {reportReady
+                      ? "Your detailed PDF report — also sent to your email."
+                      : "Your report is being prepared and will arrive by email shortly."}
+                  </p>
+                </div>
+                {reportReady && reportUrl ? (
+                  <a
+                    href={reportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
+                  >
+                    Download PDF →
+                  </a>
+                ) : (
+                  <span className="shrink-0 rounded-xl bg-canvas px-4 py-2.5 text-sm font-semibold text-muted">
+                    Generating…
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {tier >= 2 && r.sections && r.sections.length > 0 && (
             <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
