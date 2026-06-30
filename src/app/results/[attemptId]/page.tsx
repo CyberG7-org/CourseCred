@@ -5,6 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ResultTimes } from "./result-times";
 import { AutoRefresh } from "./auto-refresh";
+import { Marking } from "./marking";
 import { tiersAbove, TIER_INFO, upgradeUrl } from "@/lib/tiers";
 
 export const metadata = { title: "Your result — CourseCred" };
@@ -61,9 +62,10 @@ export default async function ResultsPage({
             <p className="text-sm text-muted">{quiz?.title}</p>
             <h1 className="mt-1 text-3xl font-bold text-brand-dark">Marking your answers…</h1>
             <div className="mt-6 rounded-2xl border border-line bg-white p-8 shadow-sm">
-              <p className="font-bold text-brand-dark">Your responses are recorded ✓</p>
-              <p className="mt-1 text-sm text-muted">
-                We&apos;re grading now — your result appears here in a moment, and a copy is emailed to you.
+              <Marking />
+              <p className="mt-6 text-center text-sm text-muted">
+                We&apos;re grading your answers — your result appears here in a moment, and a copy is
+                emailed to you.
               </p>
               <div className="mt-6 rounded-xl bg-canvas p-4">
                 <div className="flex items-center justify-between">
@@ -212,6 +214,12 @@ export default async function ResultsPage({
               className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark"
             >
               Back to dashboard
+            </Link>
+            <Link
+              href={`/results/${attemptId}/review`}
+              className="rounded-xl border border-line px-5 py-3 font-bold text-ink hover:bg-canvas"
+            >
+              Review your answers
             </Link>
             <Link
               href="/courses"

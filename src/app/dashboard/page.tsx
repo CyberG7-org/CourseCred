@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { SubmitButton } from "@/components/submit-button";
+import { LocalTime } from "@/components/local-time";
 import { startAttempt } from "@/app/quiz/actions";
 
 export const metadata = { title: "Dashboard — CourseCred" };
@@ -14,12 +15,15 @@ type CourseRow = {
   description: string | null;
   quizzes: { id: string; title: string }[] | null;
 };
+type CourseMini = { title: string | null };
+type QuizMini = { title: string | null; courses: CourseMini | CourseMini[] | null };
 type AttemptRow = {
   id: string;
   score: number | null;
   max_score: number | null;
   passed: boolean | null;
   submitted_at: string | null;
+  quizzes: QuizMini | QuizMini[] | null;
 };
 
 export default async function DashboardPage() {
@@ -38,7 +42,7 @@ export default async function DashboardPage() {
       .limit(5),
     supabase
       .from("attempts")
-      .select("id, score, max_score, passed, submitted_at")
+      .select("id, score, max_score, passed, submitted_at, quizzes(title, courses(title))")
       .eq("user_id", user.id)
       .eq("state", "graded")
       .order("submitted_at", { ascending: false })
@@ -223,6 +227,51 @@ export default async function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Your attempts — history */}
+          {graded.length > 0 && (
+            <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-brand-dark">Your attempts</h2>
+              <p className="mt-1 text-sm text-muted">
+                Courses you&apos;ve taken — review the answers you gave.
+              </p>
+              <div className="mt-4 space-y-2">
+                {graded.map((at) => {
+                  const q = Array.isArray(at.quizzes) ? at.quizzes[0] : at.quizzes;
+                  const co = q && (Array.isArray(q.courses) ? q.courses[0] : q.courses);
+                  return (
+                    <div
+                      key={at.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-ink">{q?.title ?? "Quiz"}</p>
+                        <p className="text-xs text-muted">
+                          {co?.title ? `${co.title} · ` : ""}
+                          <LocalTime iso={at.submitted_at} />
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                            at.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {at.passed ? "PASS" : "FAIL"}
+                        </span>
+                        <Link
+                          href={`/results/${at.id}/review`}
+                          className="text-sm font-semibold text-brand hover:underline"
+                        >
+                          Review answers →
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <Footer />
