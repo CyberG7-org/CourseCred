@@ -7,8 +7,6 @@ import QRCode from "qrcode";
 const PAGE_W = 1060.5;
 const PAGE_H = 1500;
 const GOLD = rgb(0.706, 0.373, 0.024); // #B45F06 — the colour used for live text
-const CREAM = rgb(0.968, 0.953, 0.925); // paper tone, to mask the baked table grid
-const INK = rgb(0.15, 0.13, 0.11);
 
 type Bg = ArrayBuffer | Uint8Array;
 
@@ -29,15 +27,14 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
   return lines;
 }
 
-// Rule-based section verdict (band + short explanation, no raw score).
+// Rule-based section verdict (band + short explanation), used only as a fallback
+// when the AI-written analysis is unavailable.
 function analysisFor(awarded: number, max: number): string {
   const pct = max ? (awarded / max) * 100 : 0;
   if (pct >= 80)
     return "Excellent — outstanding, comprehensive performance with accurate answers across this section.";
-  if (pct >= 60)
-    return "Good — a solid understanding overall, with a few areas to strengthen.";
-  if (pct >= 40)
-    return "Fair — a mixed result; several questions in this section need review.";
+  if (pct >= 60) return "Good — a solid understanding overall, with a few areas to strengthen.";
+  if (pct >= 40) return "Fair — a mixed result; several questions in this section need review.";
   return "Poor — a low score, with multiple questions missed or left unanswered. Revisit this section's material.";
 }
 
@@ -111,75 +108,29 @@ export async function buildReportPdf(d: {
   left(d.date, 28, 370.4, 470.7, 57.1);
   left(d.course, 28, 337.3, 533.0, 57.1);
 
-  // --- dynamic Section Analysis: mask the baked 4-row grid, then draw a
-  //     content-fit box with one row per real section (any count supported) ---
-  const COVER_TOP = 630; // just below the baked "Section Analysis :" heading
-  const COVER_BOTTOM = 1072; // hides the whole baked grid down to the "Grade :" line
-  const AREA_TOP = 640;
-  page.drawRectangle({
-    x: 60,
-    y: PAGE_H - COVER_BOTTOM,
-    width: 940,
-    height: COVER_BOTTOM - COVER_TOP,
-    color: CREAM,
-  });
-
-  const labelX = 82;
-  const textX = 250;
-  const textW = 720;
-  const sections = d.sections.length
-    ? d.sections
-    : [{ section_no: 1, awarded: 0, max: 0, analysis: "No section data available." }];
-  const measured = sections.map((s) => {
-    const lines = wrapText(s.analysis ?? analysisFor(s.awarded, s.max), font, 13, textW);
-    return { s, lines, h: Math.max(lines.length * 16 + 24, 58) };
-  });
-  const shown: typeof measured = [];
-  let totalH = 0;
-  for (const m of measured) {
-    if (AREA_TOP + totalH + m.h > COVER_BOTTOM - 8) break; // never overflow
-    shown.push(m);
-    totalH += m.h;
-  }
-
-  page.drawRectangle({
-    x: 62,
-    y: PAGE_H - AREA_TOP - totalH - 2,
-    width: 936,
-    height: totalH + 4,
-    borderColor: GOLD,
-    borderWidth: 1.2,
-  });
-
-  let rowTop = AREA_TOP + 12;
-  shown.forEach((m, i) => {
-    page.drawText(`Section ${m.s.section_no}`, {
-      x: labelX,
-      y: PAGE_H - (rowTop + 18),
-      size: 15,
-      font: bold,
-      color: GOLD,
-    });
-    m.lines.forEach((ln, j) =>
+  // Fill the template's baked 4-row Section table — one section per row (max 4).
+  // Each verdict is wrapped and vertically centred inside its cell.
+  const ROW_TOP = [655.4, 758.7, 862.1, 965.4];
+  const CELL_H = 103.3;
+  const CELL_X = 286;
+  const CELL_W = 590;
+  const FS = 12;
+  const LH = 14.5;
+  for (let i = 0; i < 4; i++) {
+    const s = d.sections[i];
+    if (!s) continue;
+    const lines = wrapText(s.analysis ?? analysisFor(s.awarded, s.max), font, FS, CELL_W).slice(0, 6);
+    const top0 = ROW_TOP[i] + (CELL_H - lines.length * LH) / 2;
+    lines.forEach((ln, j) =>
       page.drawText(ln, {
-        x: textX,
-        y: PAGE_H - (rowTop + 16 + j * 16),
-        size: 13,
+        x: CELL_X,
+        y: PAGE_H - (top0 + LH * (j + 1) - 3),
+        size: FS,
         font,
-        color: INK,
+        color: GOLD,
       }),
     );
-    if (i < shown.length - 1) {
-      page.drawRectangle({
-        x: 72,
-        y: PAGE_H - (rowTop + m.h),
-        width: 916,
-        height: 0.6,
-        color: rgb(0.85, 0.82, 0.75),
-      });
-    }
-    rowTop += m.h;
-  });
+  }
 
   left(d.grade, 28, 249.8, 1089.9, 57.1, bold);
 

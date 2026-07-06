@@ -95,8 +95,22 @@ export function GenerateForm({
           </select>
         </div>
         <div>
-          <label className={label}>Sections</label>
-          <input name="sections" type="number" min={1} max={4} defaultValue={1} className={field} />
+          <label className={label}>Sections (max 4)</label>
+          <input
+            name="sections"
+            type="number"
+            min={1}
+            max={4}
+            defaultValue={1}
+            className={field}
+            onChange={(e) => {
+              if (Number(e.target.value) > 4) e.target.value = "4";
+            }}
+            onBlur={(e) => {
+              const v = Number(e.target.value) || 1;
+              e.target.value = String(Math.min(4, Math.max(1, v)));
+            }}
+          />
         </div>
         <div>
           <label className={label}>MCQ / sec</label>
@@ -125,8 +139,8 @@ export function GenerateForm({
         {pending ? "Generating… (can take ~30s)" : "Generate quiz"}
       </button>
       <p className="text-xs text-muted">
-        Keep it to 1–2 sections to stay within the request time limit — generate more
-        sections as separate quizzes if needed.
+        Up to 4 sections (the performance report has a 4-row table). Keep question counts
+        modest to stay within the request time limit.
       </p>
     </form>
   );
