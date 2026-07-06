@@ -187,6 +187,78 @@ For each question, award an integer number of marks from 0 to that question's ma
 Award partial credit strictly per the rubric's points. If the candidate's answer is blank or irrelevant, award 0.
 Echo each question_id exactly. Keep each rationale to one sentence. Output must match the JSON schema.`;
 
+// ---------------------------------------------------------------------------
+// Per-section performance analysis for the Tier-2 report — specific, varied
+// feedback grounded in what the candidate actually answered.
+// ---------------------------------------------------------------------------
+
+export type SectionAnalysisInput = {
+  section_no: number;
+  awarded: number;
+  max: number;
+  questions: { type: string; stem: string; awarded: number; max: number; answer: string }[];
+};
+export type SectionAnalysisOut = { section_no: number; analysis: string };
+
+const SECTION_ANALYSIS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    sections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          section_no: { type: "integer" },
+          analysis: { type: "string" },
+        },
+        required: ["section_no", "analysis"],
+      },
+    },
+  },
+  required: ["sections"],
+};
+
+const SECTION_ANALYSIS_SYSTEM = `You write concise, specific performance feedback for each section of an exam a candidate has taken.
+For EACH section, write ONE or TWO sentences (max ~35 words) that:
+- Open with a performance band word: Excellent / Good / Fair / Poor, judged from marks awarded vs available.
+- Reference what actually happened — e.g. which question types (multiple-choice, true/false, short-answer, long-answer) were answered well, missed, or left blank.
+- End with brief, constructive guidance when the score is weak.
+Be factual and specific to the provided data; do NOT invent details. Make each section's text distinct. Echo each section_no exactly. Output must match the JSON schema.`;
+
+export async function generateSectionAnalysis(
+  sections: SectionAnalysisInput[],
+): Promise<SectionAnalysisOut[]> {
+  if (sections.length === 0) return [];
+  const payload = sections.map((s) => ({
+    section_no: s.section_no,
+    marks_awarded: s.awarded,
+    marks_available: s.max,
+    questions: s.questions.map((q) => ({
+      type: q.type,
+      question: q.stem.slice(0, 300),
+      marks_awarded: q.awarded,
+      marks_available: q.max,
+      candidate_answer: q.answer?.trim() ? q.answer.slice(0, 400) : "(no answer provided)",
+    })),
+  }));
+
+  const res = await client().messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 2000,
+    system: SECTION_ANALYSIS_SYSTEM,
+    messages: [
+      { role: "user", content: "Write per-section analysis:\n" + JSON.stringify(payload, null, 2) },
+    ],
+    ...({ output_config: { format: { type: "json_schema", schema: SECTION_ANALYSIS_SCHEMA } } } as object),
+  });
+
+  const block = res.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("No section analysis returned.");
+  return (JSON.parse(block.text) as { sections: SectionAnalysisOut[] }).sections;
+}
+
 export async function gradeFreeText(items: FreeTextItem[]): Promise<FreeTextGrade[]> {
   if (items.length === 0) return [];
 

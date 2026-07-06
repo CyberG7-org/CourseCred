@@ -4,7 +4,12 @@ import { VerifyForm } from "@/components/verify-form";
 
 export const metadata = { title: "Verify a certificate — CourseCred" };
 
-export default function VerifyPage() {
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>;
+}) {
+  const { id } = await searchParams;
   return (
     <>
       <Navbar />
@@ -14,10 +19,11 @@ export default function VerifyPage() {
             Verify a certificate
           </h1>
           <p className="mt-2 text-muted">
-            Enter the verification code from a certificate or its QR code.
+            Enter the verification code from a certificate or its QR code — or open the
+            verification link printed on the certificate.
           </p>
           <div className="mt-8">
-            <VerifyForm />
+            <VerifyForm initialCode={id ?? ""} />
           </div>
         </div>
       </main>

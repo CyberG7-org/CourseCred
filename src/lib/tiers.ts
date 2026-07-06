@@ -9,8 +9,8 @@ export const TIER_LINKS: Record<number, string> = {
 
 export const TIER_INFO: Record<number, { title: string; desc: string; color: string }> = {
   2: {
-    title: "Tier 2 – Section Breakdown + Certificate",
-    desc: "View pass/fail results for each section and receive your official certificate.",
+    title: "Tier 2 – Section Breakdown",
+    desc: "See your score and pass/fail result for every section of the assessment.",
     color: "#2563eb",
   },
   3: {

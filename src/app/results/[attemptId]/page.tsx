@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ResultTimes } from "./result-times";
@@ -38,7 +39,7 @@ export default async function ResultsPage({
   const { data: a } = await supabase
     .from("attempts")
     .select(
-      "id, user_id, state, candidate_code, started_at, submitted_at, result_sent_at, quiz_id",
+      "id, user_id, state, candidate_code, started_at, submitted_at, result_sent_at, quiz_id, score, max_score, passed",
     )
     .eq("id", attemptId)
     .single();
@@ -91,28 +92,87 @@ export default async function ResultsPage({
     );
   }
 
-  // Released → tier-gated result via the RPC.
-  const { data: res } = await supabase.rpc("get_attempt_result", { p_attempt_id: attemptId });
-  const r = (res ?? {}) as AttemptResult;
-  const tier = r.tier ?? 1;
+  // Released → assemble the tier-gated result directly. Ownership is verified
+  // above, so we read the entitlement tier + gated grade data with the service
+  // client (attempt_grades is admin-only via RLS). This is robust regardless of
+  // the get_attempt_result RPC's deployed state.
+  const svc = createServiceClient();
+  const { data: ents } = await svc.from("entitlements").select("tier").eq("attempt_id", attemptId);
+  const tier = (ents ?? []).reduce((m, e) => Math.max(m, Number(e.tier) || 1), 1);
+
+  let sections: Section[] | undefined;
+  if (tier >= 2) {
+    const { data: g } = await svc
+      .from("attempt_grades")
+      .select("awarded_marks, max_marks, questions(section_no)")
+      .eq("attempt_id", attemptId);
+    const map = new Map<number, { awarded: number; max: number }>();
+    for (const row of (g ?? []) as {
+      awarded_marks: number;
+      max_marks: number;
+      questions: { section_no: number | null } | { section_no: number | null }[] | null;
+    }[]) {
+      const q = Array.isArray(row.questions) ? row.questions[0] : row.questions;
+      const sec = q?.section_no ?? 1;
+      const e = map.get(sec) ?? { awarded: 0, max: 0 };
+      e.awarded += Number(row.awarded_marks) || 0;
+      e.max += Number(row.max_marks) || 0;
+      map.set(sec, e);
+    }
+    sections = [...map.entries()]
+      .sort((x, y) => x[0] - y[0])
+      .map(([section_no, v]) => ({ section_no, awarded: v.awarded, max: v.max }));
+  }
+
+  let percentile: number | null = null;
+  if (tier >= 3 && a.score != null) {
+    const { count: total } = await svc
+      .from("attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("quiz_id", a.quiz_id)
+      .eq("state", "graded");
+    const { count: below } = await svc
+      .from("attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("quiz_id", a.quiz_id)
+      .eq("state", "graded")
+      .lt("score", a.score);
+    percentile = total ? Math.round(((below ?? 0) / total) * 100) : null;
+  }
+
+  let questions: Question[] | undefined;
+  if (tier >= 4) {
+    const { data: qg } = await svc
+      .from("attempt_grades")
+      .select("question_id, awarded_marks, max_marks, rationale")
+      .eq("attempt_id", attemptId);
+    questions = (qg ?? []).map(
+      (x: {
+        question_id: string;
+        awarded_marks: number;
+        max_marks: number;
+        rationale: string | null;
+      }) => ({
+        question_id: x.question_id,
+        awarded: Number(x.awarded_marks) || 0,
+        max: Number(x.max_marks) || 0,
+        rationale: x.rationale,
+      }),
+    );
+  }
+
+  const r: AttemptResult = {
+    state: a.state,
+    score: a.score,
+    max_score: a.max_score,
+    passed: a.passed,
+    tier,
+    sections,
+    percentile,
+    questions,
+  };
   const email = user.email ?? "";
   const upgrades = tiersAbove(tier);
-
-  // The tier report PDF lands in Supabase Storage at a predictable path
-  // (uploaded by the n8n tier workflow). Show a download once it exists.
-  const reportUrl =
-    tier >= 2 && a.candidate_code
-      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/reports/${a.candidate_code}/tier${tier}.pdf`
-      : null;
-  let reportReady = false;
-  if (reportUrl) {
-    try {
-      const head = await fetch(reportUrl, { method: "HEAD", cache: "no-store" });
-      reportReady = head.ok;
-    } catch {
-      reportReady = false;
-    }
-  }
 
   return (
     <>
@@ -154,31 +214,42 @@ export default async function ResultsPage({
             </div>
           </div>
 
+          {r.passed && (
+            <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-green-800">🎓 You&apos;re eligible for a certificate</h2>
+                  <p className="mt-1 text-sm text-green-700">
+                    You passed — download your official CourseCred certificate of completion.
+                  </p>
+                </div>
+                <a
+                  href={`/api/certificate/${attemptId}`}
+                  className="shrink-0 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-700"
+                >
+                  Download certificate
+                </a>
+              </div>
+            </div>
+          )}
+
           {tier >= 2 && (
             <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="font-bold text-brand-dark">Your Tier {tier} report</h2>
                   <p className="mt-1 text-sm text-muted">
-                    {reportReady
-                      ? "Your detailed PDF report — also sent to your email."
-                      : "Your report is being prepared and will arrive by email shortly."}
+                    Your detailed performance report — a copy is also emailed to you.
                   </p>
                 </div>
-                {reportReady && reportUrl ? (
-                  <a
-                    href={reportUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
-                  >
-                    Download PDF →
-                  </a>
-                ) : (
-                  <span className="shrink-0 rounded-xl bg-canvas px-4 py-2.5 text-sm font-semibold text-muted">
-                    Generating…
-                  </span>
-                )}
+                <a
+                  href={`/api/report/${attemptId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
+                >
+                  Download PDF →
+                </a>
               </div>
             </div>
           )}

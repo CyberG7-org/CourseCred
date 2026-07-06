@@ -280,10 +280,16 @@ export default async function DashboardPage() {
                           {at.passed ? "PASS" : "FAIL"}
                         </span>
                         <Link
-                          href={`/results/${at.id}/review`}
+                          href={`/results/${at.id}`}
                           className="text-sm font-semibold text-brand hover:underline"
                         >
-                          Review answers →
+                          View result →
+                        </Link>
+                        <Link
+                          href={`/results/${at.id}/review`}
+                          className="text-sm font-semibold text-muted hover:underline"
+                        >
+                          Review answers
                         </Link>
                       </div>
                     </div>
