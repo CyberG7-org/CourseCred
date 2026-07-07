@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -8,10 +9,11 @@ import { ResultTimes } from "./result-times";
 import { AutoRefresh } from "./auto-refresh";
 import { Marking } from "./marking";
 import { tiersAbove, TIER_INFO, upgradeUrl } from "@/lib/tiers";
+import { SectionBreakdown, SectionBreakdownSkeleton } from "./section-breakdown";
 
 export const metadata = { title: "Your result — CourseCred" };
+export const maxDuration = 30; // first view may generate the AI section analysis
 
-type Section = { section_no: number; awarded: number; max: number };
 type Question = { question_id: string; awarded: number; max: number; rationale: string | null };
 type AttemptResult = {
   state: string;
@@ -19,7 +21,6 @@ type AttemptResult = {
   max_score: number | null;
   passed: boolean | null;
   tier: number;
-  sections?: Section[];
   percentile?: number | null;
   questions?: Question[];
 };
@@ -100,30 +101,6 @@ export default async function ResultsPage({
   const { data: ents } = await svc.from("entitlements").select("tier").eq("attempt_id", attemptId);
   const tier = (ents ?? []).reduce((m, e) => Math.max(m, Number(e.tier) || 1), 1);
 
-  let sections: Section[] | undefined;
-  if (tier >= 2) {
-    const { data: g } = await svc
-      .from("attempt_grades")
-      .select("awarded_marks, max_marks, questions(section_no)")
-      .eq("attempt_id", attemptId);
-    const map = new Map<number, { awarded: number; max: number }>();
-    for (const row of (g ?? []) as {
-      awarded_marks: number;
-      max_marks: number;
-      questions: { section_no: number | null } | { section_no: number | null }[] | null;
-    }[]) {
-      const q = Array.isArray(row.questions) ? row.questions[0] : row.questions;
-      const sec = q?.section_no ?? 1;
-      const e = map.get(sec) ?? { awarded: 0, max: 0 };
-      e.awarded += Number(row.awarded_marks) || 0;
-      e.max += Number(row.max_marks) || 0;
-      map.set(sec, e);
-    }
-    sections = [...map.entries()]
-      .sort((x, y) => x[0] - y[0])
-      .map(([section_no, v]) => ({ section_no, awarded: v.awarded, max: v.max }));
-  }
-
   let percentile: number | null = null;
   if (tier >= 3 && a.score != null) {
     const { count: total } = await svc
@@ -167,7 +144,6 @@ export default async function ResultsPage({
     max_score: a.max_score,
     passed: a.passed,
     tier,
-    sections,
     percentile,
     questions,
   };
@@ -254,23 +230,10 @@ export default async function ResultsPage({
             </div>
           )}
 
-          {tier >= 2 && r.sections && r.sections.length > 0 && (
-            <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
-              <h2 className="font-bold text-brand-dark">Section breakdown</h2>
-              <div className="mt-3 space-y-2">
-                {r.sections.map((s) => (
-                  <div
-                    key={s.section_no}
-                    className="flex items-center justify-between border-t border-line py-2 text-sm first:border-t-0"
-                  >
-                    <span className="text-muted">Section {s.section_no}</span>
-                    <span className="font-semibold text-ink">
-                      {Number(s.awarded)} / {Number(s.max)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {tier >= 2 && (
+            <Suspense fallback={<SectionBreakdownSkeleton />}>
+              <SectionBreakdown attemptId={attemptId} />
+            </Suspense>
           )}
 
           {tier >= 3 && r.percentile != null && (
