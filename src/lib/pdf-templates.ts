@@ -109,23 +109,32 @@ export async function buildReportPdf(d: {
   left(d.course, 28, 337.3, 533.0, 57.1);
 
   // Fill the template's baked 4-row Section table — one section per row (max 4).
-  // Each verdict is wrapped and vertically centred inside its cell.
+  // Text auto-fits: start at the template's 18pt and shrink only when that
+  // section's verdict won't fit its cell; wrapped + vertically centred.
   const ROW_TOP = [655.4, 758.7, 862.1, 965.4];
   const CELL_H = 103.3;
   const CELL_X = 286;
   const CELL_W = 590;
-  const FS = 12;
-  const LH = 14.5;
   for (let i = 0; i < 4; i++) {
     const s = d.sections[i];
     if (!s) continue;
-    const lines = wrapText(s.analysis ?? analysisFor(s.awarded, s.max), font, FS, CELL_W).slice(0, 6);
-    const top0 = ROW_TOP[i] + (CELL_H - lines.length * LH) / 2;
+    const text = s.analysis ?? analysisFor(s.awarded, s.max);
+    let fs = 18;
+    let lh = fs * 1.25;
+    let lines = wrapText(text, font, fs, CELL_W);
+    for (const size of [18, 16, 14, 12]) {
+      fs = size;
+      lh = fs * 1.25;
+      lines = wrapText(text, font, fs, CELL_W);
+      if (lines.length * lh <= CELL_H - 12) break;
+    }
+    lines = lines.slice(0, Math.floor((CELL_H - 12) / lh));
+    const top0 = ROW_TOP[i] + (CELL_H - lines.length * lh) / 2;
     lines.forEach((ln, j) =>
       page.drawText(ln, {
         x: CELL_X,
-        y: PAGE_H - (top0 + LH * (j + 1) - 3),
-        size: FS,
+        y: PAGE_H - (top0 + lh * (j + 1) - fs * 0.25),
+        size: fs,
         font,
         color: GOLD,
       }),
