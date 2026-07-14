@@ -10,6 +10,15 @@ const GOLD = rgb(0.706, 0.373, 0.024); // #B45F06 — the colour used for live t
 
 type Bg = ArrayBuffer | Uint8Array;
 
+type Tier3Section = {
+  section_no: number;
+  awarded: number;
+  max: number;
+  performance_analysis: string;
+  strengths: string[];
+  weaknesses: string[];
+};
+
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
@@ -142,6 +151,110 @@ export async function buildReportPdf(d: {
   }
 
   left(d.grade, 28, 249.8, 1089.9, 57.1, bold);
+
+  return pdf.save();
+}
+
+// ---------------- Tier 3 ranking & comparison report ----------------
+export async function buildTier3ReportPdf(d: {
+  name: string;
+  candidateId: string;
+  course: string;
+  date: string;
+  score: string;
+  sections: Tier3Section[];
+  bgBytes: [Bg, Bg, Bg];
+  chartBytes: Bg;
+}): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.TimesRoman);
+  const bold = await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const backgrounds = await Promise.all(d.bgBytes.map((bg) => pdf.embedPng(bg)));
+  const chart = await pdf.embedPng(d.chartBytes);
+  const pages = backgrounds.map((bg) => {
+    const page = pdf.addPage([PAGE_W, PAGE_H]);
+    page.drawImage(bg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
+    return page;
+  });
+
+  const drawLeft = (
+    pageIndex: number,
+    text: string,
+    size: number,
+    x: number,
+    top: number,
+    f: PDFFont = font,
+    color = GOLD,
+  ) => {
+    pages[pageIndex].drawText(text, {
+      x,
+      y: PAGE_H - top - size,
+      size,
+      font: f,
+      color,
+    });
+  };
+
+  drawLeft(0, d.name, 28, 263, 355);
+  drawLeft(0, d.candidateId, 28, 344, 418);
+  drawLeft(0, d.date, 28, 377, 487);
+  drawLeft(0, d.course, 28, 344, 550);
+  drawLeft(0, d.score, 28, 252, 612);
+
+  const bySection = new Map(d.sections.map((s) => [s.section_no, s]));
+  const blockRects: Record<number, { page: number; x: number; top: number; w: number; h: number }> = {
+    1: { page: 0, x: 282, top: 760, w: 600, h: 455 },
+    2: { page: 1, x: 288, top: 225, w: 600, h: 425 },
+    3: { page: 1, x: 288, top: 828, w: 600, h: 425 },
+    4: { page: 2, x: 288, top: 212, w: 600, h: 395 },
+  };
+
+  const renderBlock = (sectionNo: number) => {
+    const s = bySection.get(sectionNo);
+    if (!s) return;
+    const rect = blockRects[sectionNo];
+    const page = pages[rect.page];
+
+    const parts: { text: string; bold?: boolean; indent?: number }[] = [
+      { text: `Section Score: ${s.awarded}/${s.max}`, bold: true },
+      { text: `Performance Analysis: ${s.performance_analysis}` },
+      { text: "Strengths:", bold: true },
+      ...s.strengths.map((item) => ({ text: `- ${item}`, indent: 14 })),
+      { text: "Weaknesses:", bold: true },
+      ...s.weaknesses.map((item) => ({ text: `- ${item}`, indent: 14 })),
+    ];
+
+    for (const size of [17, 16, 15, 14, 13, 12, 11]) {
+      const lineHeight = size * 1.18;
+      const lines = parts.flatMap((part) =>
+        wrapText(part.text, part.bold ? bold : font, size, rect.w - (part.indent ?? 0)).map((line) => ({
+          line,
+          bold: part.bold,
+          indent: part.indent ?? 0,
+        })),
+      );
+      if (lines.length * lineHeight <= rect.h - 22 || size === 11) {
+        const maxLines = Math.floor((rect.h - 22) / lineHeight);
+        lines.slice(0, maxLines).forEach((line, i) => {
+          page.drawText(line.line, {
+            x: rect.x + line.indent,
+            y: PAGE_H - (rect.top + 16 + lineHeight * (i + 1) - size * 0.25),
+            size,
+            font: line.bold ? bold : font,
+            color: GOLD,
+          });
+        });
+        break;
+      }
+    }
+  };
+
+  [1, 2, 3, 4].forEach(renderBlock);
+
+  // Page 3 chart replaces the placeholder illustration area. The reference
+  // chart has transparent pixels, so draw its black backing explicitly.
+  pages[2].drawRectangle({ x: 185, y: PAGE_H - 1205, width: 690, height: 414, color: rgb(0, 0, 0) });
+  pages[2].drawImage(chart, { x: 185, y: PAGE_H - 1205, width: 690, height: 414 });
 
   return pdf.save();
 }
