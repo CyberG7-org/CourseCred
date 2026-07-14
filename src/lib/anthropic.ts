@@ -259,6 +259,82 @@ export async function generateSectionAnalysis(
   return (JSON.parse(block.text) as { sections: SectionAnalysisOut[] }).sections;
 }
 
+// ---------------------------------------------------------------------------
+// Tier-3 detailed section breakdown — legacy report format: a performance-
+// analysis paragraph plus explicit Strengths / Weaknesses bullets per section.
+// ---------------------------------------------------------------------------
+
+export type DetailedSectionOut = {
+  section_no: number;
+  performance_analysis: string;
+  strengths: string[];
+  weaknesses: string[];
+};
+
+const DETAILED_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    sections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          section_no: { type: "integer" },
+          performance_analysis: { type: "string" },
+          strengths: { type: "array", items: { type: "string" } },
+          weaknesses: { type: "array", items: { type: "string" } },
+        },
+        required: ["section_no", "performance_analysis", "strengths", "weaknesses"],
+      },
+    },
+  },
+  required: ["sections"],
+};
+
+const DETAILED_SYSTEM = `You write the per-section breakdown of a candidate's exam performance report.
+For EACH section produce:
+- performance_analysis: 2–3 sentences summarising how the candidate performed in that section — reference the topics covered and how accurately/completely they answered (grounded ONLY in the provided questions, answers, and marks).
+- strengths: 1–3 short bullets naming specific topics/skills the candidate handled well. If nothing was handled well, give one bullet saying so plainly.
+- weaknesses: 1–3 short bullets naming specific gaps (questions missed, blank answers, misunderstood topics). If there are no significant weaknesses, return exactly one bullet: "No significant weaknesses were identified."
+Tone: professional assessor. Be factual — never invent topics not present in the data. Echo each section_no exactly. Output must match the JSON schema.`;
+
+export async function generateDetailedSectionAnalysis(
+  sections: SectionAnalysisInput[],
+): Promise<DetailedSectionOut[]> {
+  if (sections.length === 0) return [];
+  const payload = sections.map((s) => ({
+    section_no: s.section_no,
+    marks_awarded: s.awarded,
+    marks_available: s.max,
+    questions: s.questions.map((q) => ({
+      type: q.type,
+      question: q.stem.slice(0, 300),
+      marks_awarded: q.awarded,
+      marks_available: q.max,
+      candidate_answer: q.answer?.trim() ? q.answer.slice(0, 400) : "(no answer provided)",
+    })),
+  }));
+
+  const res = await client().messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 4000,
+    system: DETAILED_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content: "Write the detailed per-section breakdown:\n" + JSON.stringify(payload, null, 2),
+      },
+    ],
+    ...({ output_config: { format: { type: "json_schema", schema: DETAILED_SCHEMA } } } as object),
+  });
+
+  const block = res.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("No detailed analysis returned.");
+  return (JSON.parse(block.text) as { sections: DetailedSectionOut[] }).sections;
+}
+
 export async function gradeFreeText(items: FreeTextItem[]): Promise<FreeTextGrade[]> {
   if (items.length === 0) return [];
 
