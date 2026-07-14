@@ -48,14 +48,15 @@ async function fetchPng(url: string): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-function chartUrl(sections: { section_no: number; awarded: number }[]) {
+function chartUrl(sections: { section_no: number; awarded: number; max: number }[]) {
+  const nonEmptySections = sections.filter((s) => s.max > 0);
   const config = {
     type: "doughnut",
     data: {
-      labels: sections.map((s) => `Section ${s.section_no}`),
+      labels: nonEmptySections.map((s) => `Section ${s.section_no}`),
       datasets: [
         {
-          data: sections.map((s) => s.awarded),
+          data: nonEmptySections.map((s) => s.awarded),
           backgroundColor: ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2"],
           borderColor: "#FFFFFF",
           borderWidth: 3,
@@ -63,7 +64,7 @@ function chartUrl(sections: { section_no: number; awarded: number }[]) {
       ],
     },
     options: {
-      backgroundColor: "#000000",
+      backgroundColor: "transparent",
       legend: {
         position: "top",
         labels: { fontColor: "#888888", fontSize: 24, boxWidth: 84, padding: 18 },
@@ -77,7 +78,7 @@ function chartUrl(sections: { section_no: number; awarded: number }[]) {
       },
     },
   };
-  return `https://quickchart.io/chart?width=1000&height=600&format=png&c=${encodeURIComponent(
+  return `https://quickchart.io/chart?width=1000&height=600&format=png&backgroundColor=transparent&c=${encodeURIComponent(
     JSON.stringify(config),
   )}`;
 }
@@ -235,13 +236,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ attemptI
       }
     }
 
-    const tier3Sections = secNos.slice(0, 4).map((n) => ({
-      ...(detailedMap.get(n) ?? fallbackDetailedSection(n, totals.get(n)!.awarded, totals.get(n)!.max)),
-      awarded: totals.get(n)!.awarded,
-      max: totals.get(n)!.max,
-    }));
+    const tier3Sections = [1, 2, 3, 4].map((n) => {
+      const total = totals.get(n);
+      if (!total) {
+        return {
+          section_no: n,
+          awarded: 0,
+          max: 0,
+          performance_analysis: "N/A - no questions were included in this section.",
+          strengths: ["N/A"],
+          weaknesses: ["N/A"],
+        };
+      }
+      return {
+        ...(detailedMap.get(n) ?? fallbackDetailedSection(n, total.awarded, total.max)),
+        awarded: total.awarded,
+        max: total.max,
+      };
+    });
     const scoreAwarded = [...totals.values()].reduce((sum, s) => sum + s.awarded, 0);
     const scoreMax = [...totals.values()].reduce((sum, s) => sum + s.max, 0);
+    const scorePct = scoreMax ? Math.round((scoreAwarded / scoreMax) * 100) : 0;
     const [bg1, bg2, bg3, chartBytes] = await Promise.all([
       fetchPng(`${origin}/tier3-bg-1.png`),
       fetchPng(`${origin}/tier3-bg-2.png`),
@@ -253,7 +268,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ attemptI
       candidateId: a.candidate_code ?? "-",
       course: course?.title ?? "Assessment",
       date: fmtDate(a.submitted_at),
-      score: `${scoreAwarded}/${scoreMax}`,
+      score: `${scorePct}%`,
       sections: tier3Sections,
       bgBytes: [bg1, bg2, bg3],
       chartBytes,

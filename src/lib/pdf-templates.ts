@@ -251,9 +251,7 @@ export async function buildTier3ReportPdf(d: {
 
   [1, 2, 3, 4].forEach(renderBlock);
 
-  // Page 3 chart replaces the placeholder illustration area. The reference
-  // chart has transparent pixels, so draw its black backing explicitly.
-  pages[2].drawRectangle({ x: 185, y: PAGE_H - 1205, width: 690, height: 414, color: rgb(0, 0, 0) });
+  // Page 3 chart replaces the placeholder illustration area.
   pages[2].drawImage(chart, { x: 185, y: PAGE_H - 1205, width: 690, height: 414 });
 
   return pdf.save();
